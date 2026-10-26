@@ -2009,6 +2009,12 @@ version of their own to them without also giving them a release of their own.
 - **Connectors says why Airtable or Google Workspace can't be connected on a
   server without a public address**: the operator is told to set
   `GATEWAY_PUBLIC_URL`, and everyone else whom to ask.
+- **A Claude Code agent's session can continue a conversation started in the
+  Claude Code CLI.** The new-session dialog lists the conversations started in
+  the agent's folder, on this computer or its SSH host. The session continues a
+  copy of the one picked, so the terminal's own is never written to, and its
+  transcript starts with what was said in it. A conversation still open in a
+  terminal can't be picked. No earlier prompt is sent again.
 
 #### Changed
 - **Managed agents and machines update when the server says they changed.**
