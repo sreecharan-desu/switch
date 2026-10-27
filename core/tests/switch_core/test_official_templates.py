@@ -11,6 +11,7 @@ from switch_core.official_templates import (
     official_template,
     official_templates,
 )
+from switch_core.providers.registry import provider_ids
 from switch_core.template_lint import lint_template
 
 _REPO = Path(__file__).resolve().parents[3]
@@ -129,3 +130,23 @@ def test_an_unknown_official_id_is_none():
         official_template("official:nope", agent_management=True, switch_buddy=True)
         is None
     )
+
+
+def test_switch_buddy_offers_every_provider_switch_runs():
+    """The template's provider param lists the providers to try in order; a
+    provider added to Switch and not to it is one buddy is never created
+    with outside Switch Console, which always names one."""
+    template = yaml.safe_load(
+        (_PACKAGED / "switch-buddy" / "template.yaml").read_text(encoding="utf-8")
+    )
+    assert sorted(template["params"]["provider"]["default"]) == sorted(provider_ids())
+
+
+def test_switch_buddy_declares_the_inputs_switch_console_fills():
+    """Switch Console fills these when it creates a buddy (create-buddy.ts),
+    and the server refuses an input a template does not declare: dropping or
+    renaming one stops every Console that sends it from creating a buddy."""
+    template = yaml.safe_load(
+        (_PACKAGED / "switch-buddy" / "template.yaml").read_text(encoding="utf-8")
+    )
+    assert {"agent_name", "provider", "machine"} <= set(template["params"])
