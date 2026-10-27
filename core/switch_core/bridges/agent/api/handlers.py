@@ -1968,7 +1968,8 @@ async def list_rooms(
     if agent.id != agent_id:
         raise HTTPException(status_code=403, detail="Not authorized for this agent")
 
-    rooms = await protocol.list_all_rooms(agent.id)
+    async with protocol.session_factory() as session:
+        rooms = await protocol.room_store.get_all(session)
     return RoomListResponse(
         rooms=[RoomInfo(id=r.id, name=r.name, description=r.description) for r in rooms]
     )
