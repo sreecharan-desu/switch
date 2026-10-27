@@ -97,7 +97,11 @@ from switch_core.bridges.agent.protocol.agent_connections import (
     evicted_session_warning,
     sse_fallback,
 )
-from switch_core.bridges.agent.protocol.agent_core import AgentCore, AgentExistsError
+from switch_core.bridges.agent.protocol.agent_core import (
+    LIST_ALL_ROOMS_MAX,
+    AgentCore,
+    AgentExistsError,
+)
 from switch_core.bridges.agent.protocol.event_buffer import TICKET_FLOOR, Reader
 from switch_core.bridges.agent.protocol.positions import OWN_EVENTS, Position
 from switch_core.bridges.agent.protocol.stream import (
@@ -115,7 +119,7 @@ from switch_core.bridges.agent.registration_bootstrap import (
 from switch_core.budgets import BudgetExceeded
 from switch_core.config import SwitchConfig
 from switch_core.content_disposition import content_disposition
-from switch_core.db.models import Agent
+from switch_core.db.models import Agent, Room
 from switch_core.db.stores.api_key_store import ApiKeyStore
 from switch_core.gateway.known_agents import known_agent
 from switch_core.observability.catalogue import AGENT_CONNECTIONS_REFUSED
@@ -1968,8 +1972,19 @@ async def list_rooms(
     if agent.id != agent_id:
         raise HTTPException(status_code=403, detail="Not authorized for this agent")
 
-    async with protocol.session_factory() as session:
-        rooms = await protocol.room_store.get_all(session)
+    rooms: list[Room] = []
+    cursor: str | None = None
+    while True:
+        page, cursor = await protocol.list_all_rooms(
+            agent.id,
+            include_archived=False,
+            name_contains=None,
+            limit=LIST_ALL_ROOMS_MAX,
+            cursor=cursor,
+        )
+        rooms.extend(page)
+        if cursor is None:
+            break
     return RoomListResponse(
         rooms=[RoomInfo(id=r.id, name=r.name, description=r.description) for r in rooms]
     )
