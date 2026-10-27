@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { chmod, copyFile, lstat, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parse, stringify } from 'smol-toml';
 import type { RuntimeMode } from '../adapter';
@@ -36,7 +37,7 @@ export async function prepareCodexSessionHome(input: {
   const home = join(input.root, key);
   await mkdir(home, { recursive: true, mode: 0o700 });
   await chmod(home, 0o700);
-  const keyringLogin = !(await isFile(join(input.sourceHome, 'auth.json')));
+  const keyringLogin = !(await hasCodexAuthFile(input.sourceHome));
   // A copy left from when the machine kept its login in a file: a session
   // handed a keyring login never reads it, so it is only a plaintext secret.
   if (keyringLogin)
@@ -64,9 +65,18 @@ export async function prepareCodexSessionHome(input: {
   return { home, keyringLogin };
 }
 
-async function isFile(path: string): Promise<boolean> {
+/**
+ * The Codex home a session takes its login and configuration from. Sign-in
+ * checks resolve it here too, so they look where sessions do.
+ */
+export function codexSourceHome(env: Record<string, string>): string {
+  return env.CODEX_HOME || join(homedir(), '.codex');
+}
+
+/** Whether a Codex home keeps its login in auth.json, the only form a session copies. */
+export async function hasCodexAuthFile(home: string): Promise<boolean> {
   try {
-    return (await stat(path)).isFile();
+    return (await stat(join(home, 'auth.json'))).isFile();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
     throw error;
