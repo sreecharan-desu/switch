@@ -4,9 +4,6 @@ import type { ManagedAgentView } from '@shared/core/managed-agents/managed-agent
 /** The template every person's buddy is created from, served by the server. */
 export const BUDDY_TEMPLATE_ID = 'official:switch-buddy';
 
-/** What the buddy is, whoever's it is: each one is shown by its own name, switch-buddy-<person>. */
-export const BUDDY_KIND = 'switch-buddy';
-
 const NAME_PREFIX = 'switch-buddy';
 
 /** Agent names are lowercase letters, digits, `.`, `-` and `_`. */
@@ -47,6 +44,24 @@ export function isBuddy(agent: Pick<ManagedAgentView, 'name'>): boolean {
   return agent.name === NAME_PREFIX || agent.name.startsWith(`${NAME_PREFIX}-`);
 }
 
+/** The person's buddy among their own agents, if they have one. */
+export function findBuddy<T extends Pick<ManagedAgentView, 'name'>>(
+  agents: readonly T[] | null | undefined
+): T | null {
+  return agents?.find(isBuddy) ?? null;
+}
+
+/**
+ * Whether a server offers switch-buddy: it is made from a template the server
+ * serves behind its `switch_buddy` flag, and runs as a managed agent, so
+ * agent management must be on too.
+ */
+export function buddyOffered(
+  flags: Pick<FeatureFlags, 'switch_buddy' | 'agent_management'>
+): boolean {
+  return flags.switch_buddy && flags.agent_management;
+}
+
 /**
  * Whether the server offers switch-buddy and the person has none yet: it is
  * waiting on an AI provider. Not while their agents are still unknown, so a
@@ -66,10 +81,9 @@ export function buddyIsPending({
   return (
     onboardingBuilt &&
     serverId !== null &&
-    flags.switch_buddy &&
-    flags.agent_management &&
+    buddyOffered(flags) &&
     Array.isArray(agents) &&
-    !agents.some(isBuddy)
+    findBuddy(agents) === null
   );
 }
 
