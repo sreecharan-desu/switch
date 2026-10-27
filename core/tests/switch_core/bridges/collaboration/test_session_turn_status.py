@@ -118,3 +118,28 @@ def test_a_warning_too_long_for_the_message_is_cut() -> None:
     assert len(lines) == 1
     assert len(lines[0]) <= 10
     assert lines[0].startswith("⚠️")
+
+
+def test_running_subagents_are_listed_and_updated_as_they_finish() -> None:
+    items = [
+        _call("in-progress", title="Subagent (Explore): Search auth handlers"),
+        _call("in-progress", title="Subagent (Explore): Check login tests"),
+    ]
+    lines = _status(items, "running", tool_detail=True)
+    assert lines == [
+        "**Working…**",
+        "▸ Subagent (Explore): Search auth handlers",
+        "▸ Subagent (Explore): Check login tests",
+        "▸ 2 running",
+    ]
+
+    items[0] = _call("completed", title="Subagent (Explore): Search auth handlers")
+    items.append(_call("in-progress", title="Reading config.py"))
+    updated = _status(items, "running", tool_detail=True)
+    assert updated == [
+        "**Working…**",
+        "Now: Reading config.py",
+        "✓ Subagent (Explore): Search auth handlers",
+        "▸ Subagent (Explore): Check login tests",
+        "▸ 2 running · ✓ 1 done",
+    ]

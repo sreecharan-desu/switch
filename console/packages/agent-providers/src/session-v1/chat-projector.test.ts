@@ -160,6 +160,64 @@ describe('chat projection', () => {
       )
     ).toThrow('identity');
   });
+  it('formats subagent items with agent identity and task description across providers', () => {
+    const projector = new ChatProjector(session('claude'), null);
+    projector.bindTurn('turn', context);
+    const base = {
+      provider: 'claude' as const,
+      sessionId: 'session',
+      eventId: 'native-event',
+      createdAt: '2026-09-07T12:00:00Z',
+      turnId: 'turn',
+    };
+    const started = projector.ingest(
+      {
+        ...base,
+        type: 'item.started',
+        item: {
+          id: 'sub-1',
+          type: 'subagent',
+          status: 'in_progress',
+          title: 'Search auth handlers',
+          toolName: 'Explore',
+          childSessionId: 'child-1',
+        },
+      },
+      0
+    );
+    expect(started[0]).toMatchObject({
+      type: 'item.upsert',
+      item: {
+        kind: 'tool-activity',
+        status: 'in-progress',
+        title: 'Subagent (Explore): Search auth handlers',
+      },
+    });
+
+    const codexStarted = projector.ingest(
+      {
+        ...base,
+        type: 'item.started',
+        item: {
+          id: 'sub-2',
+          type: 'subagent',
+          status: 'in_progress',
+          title: 'spawnAgent',
+          toolName: 'spawnAgent',
+          text: 'Inspect flaky test suite\nDetails',
+        },
+      },
+      300
+    );
+    expect(codexStarted[0]).toMatchObject({
+      type: 'item.upsert',
+      item: {
+        kind: 'tool-activity',
+        status: 'in-progress',
+        title: 'Subagent: Inspect flaky test suite',
+      },
+    });
+  });
 });
 
 it('persists host sequences and acknowledgements across reloads', async () => {

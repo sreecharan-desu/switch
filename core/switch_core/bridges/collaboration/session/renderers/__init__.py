@@ -427,3 +427,11 @@ class RequestReference:
 
     token: str
     handle: str
+
+
+def is_subagent(item: Item) -> bool:
+    """Whether `item` represents a delegated subagent run."""
+    if item.kind != "tool-activity" or not item.title:
+        return False
+    title = item.title.strip()
+    return title == "Subagent" or title.startswith(("Subagent:", "Subagent ("))

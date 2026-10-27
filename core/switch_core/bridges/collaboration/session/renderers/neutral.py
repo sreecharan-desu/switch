@@ -61,6 +61,7 @@ from . import (
     Markup,
     RequestReference,
     example_value,
+    is_subagent,
     surface_label,
     turn_state,
     unanswerable,
@@ -349,13 +350,34 @@ def _doing(
     lines: list[str] = []
     ended = turn.status in TURN_ENDED
     if tool_detail and not ended:
-        current = next(
-            (item for item in reversed(did) if item.status == "in-progress"), None
-        )
-        item = current or did[-1]
-        label = "Now" if current else "Last"
-        title = item.title or "Tool call"
-        lines.append(f"{label}: {_fit(title, max(1, budget // 4), escape=escape)}")
+        subagents = [item for item in did if is_subagent(item)]
+        if subagents:
+            other_running = next(
+                (
+                    item
+                    for item in reversed(did)
+                    if item.status == "in-progress" and not is_subagent(item)
+                ),
+                None,
+            )
+            if other_running is not None:
+                title = other_running.title or "Tool call"
+                lines.append(
+                    f"Now: {_fit(title, max(1, budget // 4), escape=escape)}"
+                )
+            for sub in subagents:
+                sub_title = sub.title or "Subagent"
+                lines.append(
+                    f"{_OUTCOME[sub.status]} {_fit(sub_title, max(1, budget // 4), escape=escape)}"
+                )
+        else:
+            current = next(
+                (item for item in reversed(did) if item.status == "in-progress"), None
+            )
+            item = current or did[-1]
+            label = "Now" if current else "Last"
+            title = item.title or "Tool call"
+            lines.append(f"{label}: {_fit(title, max(1, budget // 4), escape=escape)}")
 
     counts = {
         status: sum(1 for item in did if item.status == status) for status in _OUTCOME

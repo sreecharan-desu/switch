@@ -1,5 +1,44 @@
 import type { HostBody, Item, Origin, Session } from '@switch-console/shared/session-v1';
-import type { ProviderRuntimeEvent } from '../events';
+import type { ProviderItem, ProviderRuntimeEvent } from '../events';
+
+const GENERIC_SUBAGENT_NAMES = new Set([
+  'Agent',
+  'Task',
+  'task',
+  'subagent',
+  'spawnAgent',
+  'local_agent',
+  'remote_agent',
+]);
+
+function firstLine(text: string | undefined): string | null {
+  if (!text) return null;
+  const line = text
+    .split(/\r?\n/)
+    .map((part) => part.trim())
+    .find((part) => part.length > 0);
+  return line ?? null;
+}
+
+export function projectItemTitle(item: ProviderItem, previousTitle?: string): string {
+  if (item.type !== 'subagent') return item.title.slice(0, 4096);
+  const rawTitle = item.title.trim();
+  if (/^subagent(?:\b|:|\s*\()/i.test(rawTitle)) return rawTitle.slice(0, 4096);
+  const rawTool = item.toolName?.trim();
+  const agentName =
+    rawTool && !GENERIC_SUBAGENT_NAMES.has(rawTool) ? rawTool : null;
+  const description =
+    rawTitle.length > 0 && !GENERIC_SUBAGENT_NAMES.has(rawTitle)
+      ? rawTitle
+      : firstLine(item.text);
+  if (agentName && description && description !== agentName) {
+    return `Subagent (${agentName}): ${description}`.slice(0, 4096);
+  }
+  if (description) return `Subagent: ${description}`.slice(0, 4096);
+  if (agentName) return `Subagent (${agentName})`.slice(0, 4096);
+  if (previousTitle && /^subagent/i.test(previousTitle)) return previousTitle.slice(0, 4096);
+  return 'Subagent';
+}
 import type { Redactions } from '../host/redaction';
 
 type TurnContext = { commandId: string | null; origin: Origin | null };
@@ -82,7 +121,7 @@ export class ChatProjector {
           revision: previous?.item.revision ?? 0,
           kind,
           status: event.item.status === 'in_progress' ? 'in-progress' : event.item.status,
-          title: event.item.title.slice(0, 4096),
+          title: projectItemTitle(event.item, previous?.item.title),
           text: kind === 'tool-activity' ? '' : (event.item.text ?? previous?.item.text ?? ''),
           attachments: [],
           origin: kind === 'user-message' ? context.origin : null,

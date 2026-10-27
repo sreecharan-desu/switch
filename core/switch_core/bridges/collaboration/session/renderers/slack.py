@@ -58,6 +58,7 @@ from . import (
     NO_OPTIONS,
     RequestReference,
     example_value,
+    is_subagent,
     surface_label,
     turn_state,
     unanswerable,
@@ -1216,7 +1217,9 @@ def render_activity_plan(
     appeared before the turn had done anything.
     """
     shown = [item for item in items if in_activity_log(item)]
-    kept = shown[len(shown) - _MAX_SECTION_ITEMS :]
+    kept = _keep_with_running_subagents(
+        shown, _MAX_SECTION_ITEMS, live=turn.status not in TURN_ENDED
+    )
     title = _activity_title(
         items, turn, elapsed_seconds=elapsed_seconds, omitted=len(shown) - len(kept)
     )
@@ -1584,7 +1587,44 @@ def _running(drawn: list[Item], turn: TurnUpsert) -> tuple[int, str] | None:
     index = calls[-1] if current is None else current
     label = "Last" if current is None else "Running"
     title = plain_text(drawn[index].title) if drawn[index].title else "Tool"
+    if current is not None:
+        active_subagents = [
+            call_index
+            for call_index in calls
+            if drawn[call_index].status == "in-progress"
+            and is_subagent(drawn[call_index])
+        ]
+        if current in active_subagents and len(active_subagents) > 1:
+            extra = len(active_subagents) - 1
+            noun = "subagent" if extra == 1 else "subagents"
+            return index, f"{label}: {title} (+{extra} {noun})"
+        if active_subagents and current not in active_subagents:
+            count = len(active_subagents)
+            noun = "subagent" if count == 1 else "subagents"
+            return index, f"{label}: {title} · {count} {noun}"
     return index, f"{label}: {title}"
+
+
+def _keep_with_running_subagents(
+    shown: list[Item], limit: int, *, live: bool
+) -> list[Item]:
+    """Keep the newest `limit` items while pinning running subagents from earlier."""
+    if len(shown) <= limit:
+        return shown
+    cutoff = len(shown) - limit
+    tail = shown[cutoff:]
+    if not live:
+        return tail
+    pinned = [
+        item
+        for item in shown[:cutoff]
+        if item.status == "in-progress" and is_subagent(item)
+    ]
+    if not pinned:
+        return tail
+    pinned = pinned[-limit:]
+    remaining = limit - len(pinned)
+    return [*pinned, *(tail[-remaining:] if remaining > 0 else [])]
 
 
 def _plan(

@@ -151,6 +151,24 @@ describe('presentTool', () => {
       verb: 'Posted to the room',
       details: null,
     });
+    expect(presentTool(item('Subagent (Explore): Search auth', 'in-progress'), null)).toMatchObject({
+      kind: 'agent',
+      verb: 'Running agent:',
+      subject: 'Explore: Search auth',
+      details: null,
+    });
+    expect(presentTool(item('Subagent: Check tests'), null)).toMatchObject({
+      kind: 'agent',
+      verb: 'Ran agent:',
+      subject: 'Check tests',
+      details: null,
+    });
+    expect(presentTool(item('Subagent'), null)).toMatchObject({
+      kind: 'agent',
+      verb: 'Ran an agent',
+      subject: null,
+      details: null,
+    });
     expect(presentTool(item('ToolSearch'), null)).toMatchObject({
       kind: 'other',
       verb: 'ToolSearch',

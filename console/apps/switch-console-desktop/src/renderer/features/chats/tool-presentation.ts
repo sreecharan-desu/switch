@@ -59,7 +59,7 @@ const EDIT = new Set([
 ]);
 const SEARCH = new Set(['Grep', 'Glob', 'LS', 'grep', 'glob', 'list', 'codesearch']);
 const WEB = new Set(['WebSearch', 'WebFetch', 'websearch', 'webfetch', 'web_search']);
-const AGENT = new Set(['Task', 'Agent', 'task']);
+const AGENT = new Set(['Task', 'Agent', 'task', 'Subagent', 'subagent']);
 const TODO = new Set(['TodoWrite', 'TodoRead', 'todowrite', 'todoread']);
 
 /** Tool names the Switch MCP server's tools carry, as Claude Code reports them. */
@@ -160,10 +160,17 @@ function nonEmpty(text: string | null | undefined): string | null {
   return text && text.trim().length > 0 ? text : null;
 }
 
-/** The title's tool name and subject, for a row with no details (`Edit /a.ts`, `Read`). */
+/** The title's tool name and subject, for a row with no details (`Edit /a.ts`, `Read`, `Subagent: …`). */
 function fromTitle(title: string): { name: string; subject: string | null } {
+  const subagent = /^Subagent(?:\s*\(([^)]+)\))?(?::\s*(\S.*))?$/i.exec(title.trim());
+  if (subagent) {
+    const agent = subagent[1]?.trim() || null;
+    const desc = subagent[2]?.trim() || null;
+    const subject = agent && desc ? `${agent}: ${desc}` : (desc ?? agent);
+    return { name: 'Subagent', subject };
+  }
   const match = /^([A-Za-z]+) (\S.*)$/.exec(title);
-  if (match && (EDIT.has(match[1]!) || READ.has(match[1]!)))
+  if (match && (EDIT.has(match[1]!) || READ.has(match[1]!) || AGENT.has(match[1]!)))
     return { name: match[1]!, subject: match[2]! };
   return { name: title, subject: null };
 }
@@ -298,8 +305,12 @@ export function presentTool(item: ToolItem, detail: ToolDetail | null): ToolPres
     }
     case 'agent':
     case 'todo': {
+      const parsedTitle = fromTitle(item.title);
+      const fallbackTitle = AGENT.has(item.title) ? null : item.title || null;
       const subject =
-        kind === 'agent' ? (field(input, 'description') ?? (item.title || null)) : null;
+        kind === 'agent'
+          ? (field(input, 'description') ?? parsedTitle.subject ?? fallbackTitle)
+          : null;
       const shown = pretty(detail?.input);
       return {
         ...base,

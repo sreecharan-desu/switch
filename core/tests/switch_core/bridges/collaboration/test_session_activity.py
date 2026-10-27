@@ -978,3 +978,37 @@ async def test_the_live_step_label_lands_on_the_page_the_call_is_actually_on() -
     pages = [block for block in drawn.blocks if block["type"] == "plan"]
     assert "Running: Grep" not in pages[0]["title"]
     assert pages[1]["title"].endswith("· Running: Grep")
+
+
+async def test_running_subagents_appear_in_slack_plan_header_and_stay_pinned() -> None:
+    sub1 = _item(
+        itemId="sub-1",
+        status="in-progress",
+        title="Subagent (Explore): Search auth handlers",
+    )
+    sub2 = _item(
+        itemId="sub-2",
+        status="in-progress",
+        title="Subagent (Explore): Check login tests",
+    )
+    drawn = render_activity_plan([sub1, sub2], _turn("running"), elapsed_seconds=12)
+    plan = drawn.blocks[0]
+    assert plan["title"].endswith(
+        "· Running: Subagent (Explore): Check login tests (+1 subagent)"
+    )
+
+    calls = [
+        _item(itemId=f"call-{n}", title=f"Read file-{n}.py", status="completed")
+        for n in range(55)
+    ]
+    finished_sub1 = _item(
+        itemId="sub-1",
+        status="completed",
+        title="Subagent (Explore): Search auth handlers",
+    )
+    long_drawn = render_activity_plan(
+        [finished_sub1, sub2, *calls], _turn("running"), elapsed_seconds=35
+    )
+    long_plan = long_drawn.blocks[0]
+    titles = [task["title"] for task in _turn_cards(long_plan)]
+    assert "Subagent (Explore): Check login tests" in titles
