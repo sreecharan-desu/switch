@@ -362,9 +362,7 @@ def _doing(
             )
             if other_running is not None:
                 title = other_running.title or "Tool call"
-                lines.append(
-                    f"Now: {_fit(title, max(1, budget // 4), escape=escape)}"
-                )
+                lines.append(f"Now: {_fit(title, max(1, budget // 4), escape=escape)}")
             for sub in subagents:
                 sub_title = sub.title or "Subagent"
                 lines.append(
